@@ -27,6 +27,7 @@ It is recommended you create an access policy using Amazon IAM
 2. Create a group and paste in the following policy
 ```json
     {
+      "Version": "2012-10-17",
       "Statement": [
         {
           "Action": [
