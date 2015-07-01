@@ -1,27 +1,25 @@
-require 'spec_helper'
-
 describe Ec2::Blackout::Shutdown do
 
   describe "#execute" do
 
     it "should shut down only stoppable resources" do
       stoppable_group = stoppable_resource(Ec2::Blackout::AutoScalingGroup)
-      stoppable_group.should_receive(:stop)
+      expect(stoppable_group).to receive(:stop)
 
       unstoppable_group = unstoppable_resource(Ec2::Blackout::AutoScalingGroup)
-      unstoppable_group.should_not_receive(:stop)
+      expect(unstoppable_group).not_to receive(:stop)
 
       stoppable_instance = stoppable_resource(Ec2::Blackout::Ec2Instance)
-      stoppable_instance.should_receive(:stop)
+      expect(stoppable_instance).to receive(:stop)
 
       unstoppable_instance = unstoppable_resource(Ec2::Blackout::Ec2Instance)
-      unstoppable_instance.should_not_receive(:stop)
+      expect(unstoppable_instance).not_to receive(:stop)
 
       groups = [stoppable_group, unstoppable_group]
       instances = [stoppable_instance, unstoppable_instance]
 
-      Ec2::Blackout::AutoScalingGroup.stub(:groups).and_return(groups)
-      Ec2::Blackout::Ec2Instance.stub(:running_instances).and_return(instances)
+      allow(Ec2::Blackout::AutoScalingGroup).to receive(:groups).and_return(groups)
+      allow(Ec2::Blackout::Ec2Instance).to receive(:running_instances).and_return(instances)
 
       shutdown = Ec2::Blackout::Shutdown.new(double, Ec2::Blackout::Options.new(:regions => ["ap-southeast-2"]))
       shutdown.execute
@@ -30,10 +28,10 @@ describe Ec2::Blackout::Shutdown do
     it "should shut down instances in all regions given by the options" do
       options = Ec2::Blackout::Options.new(:regions => ["ap-southeast-1", "ap-southeast-2"])
 
-      Ec2::Blackout::AutoScalingGroup.should_receive(:groups).with("ap-southeast-1", anything).and_return([])
-      Ec2::Blackout::AutoScalingGroup.should_receive(:groups).with("ap-southeast-2", anything).and_return([])
-      Ec2::Blackout::Ec2Instance.should_receive(:running_instances).with("ap-southeast-1", anything).and_return([])
-      Ec2::Blackout::Ec2Instance.should_receive(:running_instances).with("ap-southeast-2", anything).and_return([])
+      expect(Ec2::Blackout::AutoScalingGroup).to receive(:groups).with("ap-southeast-1", anything).and_return([])
+      expect(Ec2::Blackout::AutoScalingGroup).to receive(:groups).with("ap-southeast-2", anything).and_return([])
+      expect(Ec2::Blackout::Ec2Instance).to receive(:running_instances).with("ap-southeast-1", anything).and_return([])
+      expect(Ec2::Blackout::Ec2Instance).to receive(:running_instances).with("ap-southeast-2", anything).and_return([])
 
       shutdown = Ec2::Blackout::Shutdown.new(double, options)
       shutdown.execute
@@ -42,13 +40,13 @@ describe Ec2::Blackout::Shutdown do
     it "should not stop instances if the dry run option has been specified" do
       options = Ec2::Blackout::Options.new(:dry_run => true, :regions => ["ap-southeast-2"])
       stoppable_group = stoppable_resource(Ec2::Blackout::AutoScalingGroup)
-      stoppable_group.should_not_receive(:stop)
+      expect(stoppable_group).not_to receive(:stop)
 
       stoppable_instance = stoppable_resource(Ec2::Blackout::Ec2Instance)
-      stoppable_instance.should_not_receive(:stop)
+      expect(stoppable_instance).not_to receive(:stop)
 
-      Ec2::Blackout::AutoScalingGroup.stub(:groups).and_return([stoppable_group])
-      Ec2::Blackout::Ec2Instance.stub(:running_instances).and_return([stoppable_instance])
+      allow(Ec2::Blackout::AutoScalingGroup).to receive(:groups).and_return([stoppable_group])
+      allow(Ec2::Blackout::Ec2Instance).to receive(:running_instances).and_return([stoppable_instance])
 
       shutdown = Ec2::Blackout::Shutdown.new(double, options)
       shutdown.execute
@@ -67,7 +65,7 @@ describe Ec2::Blackout::Shutdown do
 
   def resource(type, stoppable)
     resource = double(type)
-    resource.should_receive(:stoppable?).and_return(stoppable)
+    expect(resource).to receive(:stoppable?).and_return(stoppable)
     resource
   end
 

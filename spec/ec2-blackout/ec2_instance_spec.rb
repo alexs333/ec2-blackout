@@ -1,5 +1,3 @@
-require 'spec_helper'
-
 module Ec2::Blackout
 
   describe Ec2Instance do
@@ -23,12 +21,12 @@ module Ec2::Blackout
       let!(:instance) { stubbed_stoppable_instance(aws_instance) }
 
       it "stops the instance" do
-        aws_instance.should_receive(:stop)
+        expect(aws_instance).to receive(:stop)
         instance.stop
       end
 
       it "tags the instance with a timestamp indicating when it was stopped" do
-        aws_instance.should_receive(:add_tag).with do |tag_name, tag_attributes|
+        expect(aws_instance).to receive(:add_tag) do |tag_name, tag_attributes|
           expect(tag_name).to eq Ec2Instance::TIMESTAMP_TAG_NAME
           expect(Time.now - tag_attributes[:value]).to be < 1
         end
@@ -40,31 +38,31 @@ module Ec2::Blackout
         let(:eip) { double(:eip) }
 
         before do
-          aws_instance.stub(:has_elastic_ip?).and_return(true)
-          aws_instance.stub(:elastic_ip).and_return(eip)
+          allow(aws_instance).to receive(:has_elastic_ip?).and_return(true)
+          allow(aws_instance).to receive(:elastic_ip).and_return(eip)
         end
 
         context 'and it is running in a VPC' do
 
           before do
-            eip.stub(:vpc?).and_return(true)
+            allow(eip).to receive(:vpc?).and_return(true)
           end
 
           it "saves the associated elastic IP as a tag" do
-            eip.should_receive(:allocation_id).and_return("eipalloc-eab23c0d")
-            aws_instance.should_receive(:add_tag).with(Ec2Instance::EIP_TAG_NAME, :value => "eipalloc-eab23c0d")
+            expect(eip).to receive(:allocation_id).and_return("eipalloc-eab23c0d")
+            expect(aws_instance).to receive(:add_tag).with(Ec2Instance::EIP_TAG_NAME, :value => "eipalloc-eab23c0d")
             instance.stop
           end
         end
 
         context 'and it is running in EC2 classic' do
           before do
-            eip.stub(:vpc?).and_return(false)
+            allow(eip).to receive(:vpc?).and_return(false)
           end
 
           it "saves the elastic public IP as a tag" do
-            eip.should_receive(:public_ip).and_return("public-ip")
-            aws_instance.should_receive(:add_tag).with(Ec2Instance::EIP_TAG_NAME, :value => "public-ip")
+            expect(eip).to receive(:public_ip).and_return("public-ip")
+            expect(aws_instance).to receive(:add_tag).with(Ec2Instance::EIP_TAG_NAME, :value => "public-ip")
             instance.stop
           end
         end
@@ -77,30 +75,30 @@ module Ec2::Blackout
       let!(:instance) { stubbed_startable_instance(aws_instance) }
 
       it "starts the instance" do
-        aws_instance.should_receive(:start)
+        expect(aws_instance).to receive(:start)
         instance.start
       end
 
       it "remove ec2 blackout tags from the instance" do
         tags = ec2_tags(Ec2Instance::TIMESTAMP_TAG_NAME => '2014-02-12 02:35:52 UTC', Ec2Instance::EIP_TAG_NAME => 'eipalloc-eab23c0d')
-        aws_instance.stub(:tags).and_return(tags)
-        tags.should_receive(:delete).with(Ec2Instance::TIMESTAMP_TAG_NAME)
-        tags.should_receive(:delete).with(Ec2Instance::EIP_TAG_NAME)
+        allow(aws_instance).to receive(:tags).and_return(tags)
+        expect(tags).to receive(:delete).with(Ec2Instance::TIMESTAMP_TAG_NAME)
+        expect(tags).to receive(:delete).with(Ec2Instance::EIP_TAG_NAME)
         instance.start
       end
 
       it "reattaches the previous elastic IP" do
         tags = ec2_tags(Ec2Instance::TIMESTAMP_TAG_NAME => '2014-02-12 02:35:52 UTC', Ec2Instance::EIP_TAG_NAME => 'eipalloc-eab23c0d')
-        aws_instance.stub(:tags).and_return(tags)
-        aws_instance.should_receive(:associate_elastic_ip).with("eipalloc-eab23c0d")
+        allow(aws_instance).to receive(:tags).and_return(tags)
+        expect(aws_instance).to receive(:associate_elastic_ip).with("eipalloc-eab23c0d")
         instance.start
       end
 
       it "should retry attaching the elastic IP if it fails" do
         tags = ec2_tags(Ec2Instance::TIMESTAMP_TAG_NAME => '2014-02-12 02:35:52 UTC', Ec2Instance::EIP_TAG_NAME => 'eipalloc-eab23c0d')
-        aws_instance.stub(:tags).and_return(tags)
-        aws_instance.should_receive(:associate_elastic_ip).and_raise(:error)
-        aws_instance.should_receive(:associate_elastic_ip)
+        allow(aws_instance).to receive(:tags).and_return(tags)
+        expect(aws_instance).to receive(:associate_elastic_ip).and_raise(:error)
+        expect(aws_instance).to receive(:associate_elastic_ip)
         instance.eip_retry_delay_seconds = 0
         instance.start
       end
@@ -112,41 +110,41 @@ module Ec2::Blackout
 
       it "returns true if the instance meets all conditions for being stoppable" do
         stoppable, reason = instance.stoppable?
-        expect(stoppable).to be_true
+        expect(stoppable).to be true
       end
 
       it "returns false if the instance is not running" do
-        aws_instance.stub(:status).and_return(:stopped)
+        allow(aws_instance).to receive(:status).and_return(:stopped)
         stoppable, reason = instance.stoppable?
-        expect(stoppable).to be_false
+        expect(stoppable).to be false
       end
 
       it "returns false if the instance belongs to an autoscaling group" do
-        aws_instance.stub(:tags).and_return(ec2_tags('aws:autoscaling:groupName' => 'foobar'))
+        allow(aws_instance).to receive(:tags).and_return(ec2_tags('aws:autoscaling:groupName' => 'foobar'))
         stoppable, reason = instance.stoppable?
-        expect(stoppable).to be_false
+        expect(stoppable).to be false
       end
 
       it "returns false if the instance matches the exclude tags specified in the options" do
         options = Ec2::Blackout::Options.new(:exclude_by_tag =>  ["foo=bar"])
         instance = stubbed_stoppable_instance(aws_instance, options)
-        aws_instance.stub(:tags).and_return(ec2_tags("foo" => "bar"))
+        allow(aws_instance).to receive(:tags).and_return(ec2_tags("foo" => "bar"))
         stoppable, reason = instance.stoppable?
-        expect(stoppable).to be_false
+        expect(stoppable).to be false
       end
 
       it "returns false if the instance does not match the include tags specified in the options" do
         options = Ec2::Blackout::Options.new(:include_by_tag =>  ["foo=bar"])
         instance = stubbed_stoppable_instance(aws_instance, options)
-        aws_instance.stub(:tags).and_return(ec2_tags("foo" => "baz"))
+        allow(aws_instance).to receive(:tags).and_return(ec2_tags("foo" => "baz"))
         stoppable, reason = instance.stoppable?
-        expect(stoppable).to be_false
+        expect(stoppable).to be false
       end
 
       it "returns false if the instance volume type is not EBS" do
-        aws_instance.stub(:root_device_type).and_return('not_ebs')
+        allow(aws_instance).to receive(:root_device_type).and_return('not_ebs')
         stoppable, reason = instance.stoppable?
-        expect(stoppable).to be_false
+        expect(stoppable).to be false
       end
     end
 
@@ -156,49 +154,49 @@ module Ec2::Blackout
 
       it "returns true if the instance meets all conditions for being startable" do
         startable, reason = instance.startable?
-        expect(startable).to be_true
+        expect(startable).to be true
       end
 
       it "returns false if the instance does not have the ec2 blackout timestamp tag" do
-        aws_instance.stub(:tags).and_return(ec2_tags({}))
+        allow(aws_instance).to receive(:tags).and_return(ec2_tags({}))
         startable, reason = instance.startable?
-        expect(startable).to be_false
+        expect(startable).to be false
       end
 
       it "returns true if the force tag was specified even if the instance does not have the ec2 blackout timestamp tag" do
         options = Ec2::Blackout::Options.new(:force => true)
         instance = stubbed_startable_instance(aws_instance, options)
-        aws_instance.stub(:tags).and_return(ec2_tags({}))
+        allow(aws_instance).to receive(:tags).and_return(ec2_tags({}))
         startable, reason = instance.startable?
-        expect(startable).to be_true
+        expect(startable).to be true
       end
     end
 
 
     def stubbed_stoppable_instance(underlying_aws_stub, options = Options.new)
-      underlying_aws_stub.stub(:status).and_return(:running)
-      underlying_aws_stub.stub(:has_elastic_ip?).and_return(false)
-      underlying_aws_stub.stub(:tags).and_return(ec2_tags({}))
-      underlying_aws_stub.stub(:add_tag)
-      underlying_aws_stub.stub(:stop)
-      underlying_aws_stub.stub(:root_device_type).and_return(:ebs)
+      allow(underlying_aws_stub).to receive(:status).and_return(:running)
+      allow(underlying_aws_stub).to receive(:has_elastic_ip?).and_return(false)
+      allow(underlying_aws_stub).to receive(:tags).and_return(ec2_tags({}))
+      allow(underlying_aws_stub).to receive(:add_tag)
+      allow(underlying_aws_stub).to receive(:stop)
+      allow(underlying_aws_stub).to receive(:root_device_type).and_return(:ebs)
       Ec2Instance.new(underlying_aws_stub, options)
     end
 
     def stubbed_startable_instance(underlying_aws_stub, options = Options.new)
-      underlying_aws_stub.stub(:status).and_return(:stopped)
-      underlying_aws_stub.stub(:has_elastic_ip?).and_return(false)
-      underlying_aws_stub.stub(:tags).and_return(ec2_tags(Ec2Instance::TIMESTAMP_TAG_NAME => '2014-02-13 02:35:52 UTC'))
-      underlying_aws_stub.stub(:associate_elastic_ip)
-      underlying_aws_stub.stub(:start)
+      allow(underlying_aws_stub).to receive(:status).and_return(:stopped)
+      allow(underlying_aws_stub).to receive(:has_elastic_ip?).and_return(false)
+      allow(underlying_aws_stub).to receive(:tags).and_return(ec2_tags(Ec2Instance::TIMESTAMP_TAG_NAME => '2014-02-13 02:35:52 UTC'))
+      allow(underlying_aws_stub).to receive(:associate_elastic_ip)
+      allow(underlying_aws_stub).to receive(:start)
       Ec2Instance.new(underlying_aws_stub, options)
     end
 
     def expect_instance_filter(state, region)
       instances_stub = double("instances")
       ec2_stub = double("ec2 instance", :instances => instances_stub)
-      AWS::EC2.should_receive(:new).with(:region => region).and_return(ec2_stub)
-      instances_stub.should_receive(:filter).with('instance-state-name', state).and_return([double, double])
+      expect(AWS::EC2).to receive(:new).with(:region => region).and_return(ec2_stub)
+      expect(instances_stub).to receive(:filter).with('instance-state-name', state).and_return([double, double])
     end
 
     def ec2_tags(tags_hash)
